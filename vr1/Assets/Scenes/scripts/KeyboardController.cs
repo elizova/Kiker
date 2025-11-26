@@ -9,7 +9,7 @@ public class KeyboardController : MonoBehaviour
 
     void Update()
     {
-        // Левая рука - движение WASD
+        // Левая рука - WASD
         if (leftController != null)
         {
             Vector3 move = new Vector3(
@@ -21,7 +21,7 @@ public class KeyboardController : MonoBehaviour
             leftController.Translate(move * moveSpeed * Time.deltaTime);
         }
 
-        // Правая рука - движение IJKL
+        // Правая рука - IJKL
         if (rightController != null)
         {
             Vector3 move = new Vector3(
