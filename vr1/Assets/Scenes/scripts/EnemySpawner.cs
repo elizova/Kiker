@@ -87,7 +87,7 @@ public class EnemySpawner : MonoBehaviour
         EnemyAI enemyAI = enemy.GetComponent<EnemyAI>();
         if (enemyAI != null)
         {
-            enemyAI.Invoke("FindClosestTower", 0.1f);
+            enemyAI.Invoke("FindInitialTarget", 0.1f);
         }
 
         enemy.SetActive(true);

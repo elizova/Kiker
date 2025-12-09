@@ -3,23 +3,13 @@ using UnityEngine;
 public class PlayerBullet : MonoBehaviour
 {
     [Header("Bullet Settings")]
-    public float damage = 10f;
+    public float damage = 1f;
     public float speed = 20f;
     public GameObject shooter;
 
     void Start()
     {
         Destroy(gameObject, 5f);
-
-        if (shooter != null)
-        {
-            Collider shooterCollider = shooter.GetComponent<Collider>();
-            Collider bulletCollider = GetComponent<Collider>();
-            if (shooterCollider != null && bulletCollider != null)
-            {
-                Physics.IgnoreCollision(shooterCollider, bulletCollider);
-            }
-        }
     }
 
     void Update()
@@ -29,12 +19,20 @@ public class PlayerBullet : MonoBehaviour
 
     void OnTriggerEnter(Collider other)
     {
-        if (other.CompareTag("Bullet") || other.gameObject == shooter) return;
+        if (other.gameObject == shooter || other.CompareTag("Bullet")) return;
+
+        // TowerCapture tower = other.GetComponent<TowerCapture>();
+        // if (tower != null && tower.currentState == TowerCapture.TowerState.Enemy)
+        // {
+        //     tower.TakeDamage(damage);
+        //     Destroy(gameObject);
+        //     return;
+        // }
 
         EnemyHealth enemy = other.GetComponent<EnemyHealth>();
         if (enemy != null)
         {
-            enemy.TakeDamage(damage);
+            enemy.TakeDamage(damage * 5);
             Destroy(gameObject);
             return;
         }
@@ -43,10 +41,5 @@ public class PlayerBullet : MonoBehaviour
         {
             Destroy(gameObject);
         }
-    }
-
-    void OnCollisionEnter(Collision collision)
-    {
-        Destroy(gameObject);
     }
 }

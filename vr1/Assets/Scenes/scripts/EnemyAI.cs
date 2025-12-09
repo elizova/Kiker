@@ -29,27 +29,33 @@ public class EnemyAI : MonoBehaviour
     private bool isCapturingTower = false;
     private float captureProgress = 0f;
     private Transform targetTower;
-    private Vector3 moveDirection = Vector3.zero;
 
-    private const int TURRET_PRIORITY = 3;
-    private const int TOWER_PRIORITY = 2;
-    private const int PLAYER_PRIORITY = 1;
+    private Coroutine targetUpdateCoroutine;
+    private bool isBeingTargetedByTurret = false;
 
-    private Vector3 lastTargetPosition;
-    private bool isCheckingTargetMovement = false;
+    [Header("Layers")]
+    public LayerMask turretLayer;
+    public LayerMask towerLayer;
+    public LayerMask playerLayer;
+
+    private List<TowerController> targetingTurrets = new List<TowerController>();
+
+    private List<Transform> ignoredTowers = new List<Transform>();
+    private float ignoreTowerTime = 10f;
 
     private enum EnemyState
     {
         MovingToTower,
         MovingToTarget,
         Attacking,
-        CapturingTower
+        CapturingTower,
+        Idle
     }
 
     void Start()
     {
         InitializeTargets();
-        FindClosestTower();
+        FindInitialTarget();
 
         if (currentTarget == null && targetTower != null)
         {
@@ -65,146 +71,412 @@ public class EnemyAI : MonoBehaviour
                 transform.rotation = Quaternion.LookRotation(direction);
             }
         }
+
+        if (targetUpdateCoroutine != null)
+            StopCoroutine(targetUpdateCoroutine);
+        targetUpdateCoroutine = StartCoroutine(TargetUpdateRoutine());
+
+        StartCoroutine(CleanIgnoredTowersRoutine());
     }
 
     void InitializeTargets()
     {
-        if (player == null)
-            player = GameObject.FindGameObjectWithTag("Player")?.transform;
-
-        if (mainTowers.Count == 0)
+        TowerManager towerManager = TowerManager.Instance;
+        if (towerManager != null && towerManager.activeTowers.Count > 0)
         {
-            GameObject[] towerObjects = GameObject.FindGameObjectsWithTag("MainTower");
-            foreach (GameObject tower in towerObjects)
+            mainTowers = new List<Transform>(towerManager.activeTowers);
+        }
+        else
+        {
+            if (mainTowers.Count == 0)
             {
-                if (tower != null && tower.activeInHierarchy)
-                    mainTowers.Add(tower.transform);
+                GameObject[] towerObjects = GameObject.FindGameObjectsWithTag("MainTower");
+                foreach (GameObject tower in towerObjects)
+                {
+                    if (tower != null && tower.activeInHierarchy)
+                        mainTowers.Add(tower.transform);
+                }
             }
         }
+
+        if (player == null)
+            player = GameObject.FindGameObjectWithTag("Player")?.transform;
     }
 
-    void FindClosestTower()
+    void FindInitialTarget()
     {
         targetTower = null;
 
         if (mainTowers.Count == 0)
         {
-            targetTower = player;
+            if (player != null)
+                targetTower = player;
             return;
         }
 
         float closestDistance = Mathf.Infinity;
+        Transform closestTower = null;
+        Vector3 myPosition = transform.position;
 
         foreach (Transform tower in mainTowers)
         {
             if (tower == null || !tower.gameObject.activeInHierarchy) continue;
 
             TowerCapture towerCapture = tower.GetComponent<TowerCapture>();
-            if (towerCapture != null && towerCapture.IsCapturedByEnemy) continue;
+            if (towerCapture != null)
+            {
+                if (towerCapture.currentState == TowerCapture.TowerState.Enemy)
+                    continue;
 
-            float distance = Vector3.Distance(transform.position, tower.position);
+                if (towerCapture.isPlayerInRange)
+                    continue;
+            }
+
+            float distance = Vector3.Distance(myPosition, tower.position);
             if (distance < closestDistance)
             {
                 closestDistance = distance;
-                targetTower = tower;
+                closestTower = tower;
             }
         }
+
+        targetTower = closestTower;
     }
 
     void Update()
     {
         AvoidOtherEnemies();
-        UpdateTarget();
         UpdateState();
         ExecuteState();
+        CheckTurretTargeting();
+        CleanTurretList();
 
         Debug.Log($"State: {currentState}, Target: {(currentTarget != null ? currentTarget.name : "None")}");
+    }
 
+    void AvoidOtherEnemies()
+    {
+        Collider[] nearbyEnemies = Physics.OverlapSphere(transform.position, 1.5f);
+        foreach (Collider enemy in nearbyEnemies)
+        {
+            if (enemy.gameObject != this.gameObject && enemy.CompareTag("Enemy"))
+            {
+                Vector3 avoidDirection = (transform.position - enemy.transform.position).normalized;
+                transform.position += avoidDirection * moveSpeed * 0.5f * Time.deltaTime;
+            }
+        }
+    }
 
+    void CheckTurretTargeting()
+    {
+        isBeingTargetedByTurret = targetingTurrets.Count > 0;
+
+        if (isBeingTargetedByTurret && currentTarget != null)
+        {
+            TowerController currentTurret = currentTarget.GetComponent<TowerController>();
+            bool isCurrentTargetTurret = currentTurret != null;
+
+            if (!isCurrentTargetTurret)
+            {
+                Transform nearestTurret = GetNearestTurret();
+                if (nearestTurret != null)
+                {
+                    currentTarget = nearestTurret;
+                    currentState = EnemyState.MovingToTarget;
+                }
+            }
+        }
+    }
+
+    Transform GetNearestTurret()
+    {
+        Transform nearestTurret = null;
+        float closestDistance = Mathf.Infinity;
+        Vector3 myPosition = transform.position;
+
+        foreach (Transform turret in turretsInRange)
+        {
+            if (turret == null || !turret.gameObject.activeInHierarchy) continue;
+
+            float distance = Vector3.Distance(myPosition, turret.position);
+            if (distance < closestDistance && distance <= turretDetectionRange)
+            {
+                closestDistance = distance;
+                nearestTurret = turret;
+            }
+        }
+
+        if (nearestTurret == null)
+        {
+            Collider[] nearbyTurrets = Physics.OverlapSphere(myPosition, turretDetectionRange, turretLayer);
+            foreach (Collider turretCollider in nearbyTurrets)
+            {
+                Transform turret = turretCollider.transform;
+                float distance = Vector3.Distance(myPosition, turret.position);
+                if (distance < closestDistance)
+                {
+                    closestDistance = distance;
+                    nearestTurret = turret;
+
+                    if (!turretsInRange.Contains(turret))
+                    {
+                        turretsInRange.Add(turret);
+                    }
+                }
+            }
+        }
+
+        return nearestTurret;
+    }
+
+    IEnumerator TargetUpdateRoutine()
+    {
+        while (true)
+        {
+            UpdateTarget();
+            yield return new WaitForSeconds(0.5f);
+        }
     }
 
     void UpdateTarget()
     {
-        Transform bestTarget = null;
-        int highestPriority = 0;
-
-        foreach (Transform turret in turretsInRange.ToArray())
+        if (currentTarget != null && (!currentTarget.gameObject.activeInHierarchy || IsTowerIgnored(currentTarget)))
         {
-            if (turret == null || !turret.gameObject.activeInHierarchy)
-            {
-                turretsInRange.Remove(turret);
-                continue;
-            }
-
-            float distance = Vector3.Distance(transform.position, turret.position);
-            if (distance <= turretDetectionRange && TURRET_PRIORITY > highestPriority)
-            {
-                bestTarget = turret;
-                highestPriority = TURRET_PRIORITY;
-            }
+            currentTarget = null;
         }
 
-        if (targetTower != null && targetTower.gameObject.activeInHierarchy)
+        if (isBeingTargetedByTurret)
         {
-            float distance = Vector3.Distance(transform.position, targetTower.position);
-            if (distance <= towerDetectionRange && TOWER_PRIORITY > highestPriority)
+            Transform nearestTurret = GetNearestTurret();
+            if (nearestTurret != null)
             {
-                bestTarget = targetTower;
-                highestPriority = TOWER_PRIORITY;
+                currentTarget = nearestTurret;
+                return;
             }
         }
 
         if (player != null && player.gameObject.activeInHierarchy)
         {
             float distanceToPlayer = Vector3.Distance(transform.position, player.position);
-            if (distanceToPlayer <= playerDetectionRange && PLAYER_PRIORITY > highestPriority)
+            if (distanceToPlayer <= playerDetectionRange)
             {
-                bestTarget = player;
-                highestPriority = PLAYER_PRIORITY;
+                currentTarget = player;
+                return;
             }
         }
 
-        currentTarget = bestTarget;
-
-        if (currentTarget == null && targetTower != null && targetTower.gameObject.activeInHierarchy)
+        Transform availableTower = FindAvailableTower();
+        if (availableTower != null)
         {
-            currentTarget = targetTower;
-            currentState = EnemyState.MovingToTower;
+            currentTarget = availableTower;
+            targetTower = availableTower;
+            return;
         }
+
+        // if (turretsInRange.Count > 0)
+        // {
+        //     Transform nearestTurret = GetNearestTurret();
+        //     if (nearestTurret != null)
+        //     {
+        //         currentTarget = nearestTurret;
+        //         return;
+        //     }
+        // }
 
         if (currentTarget == null)
         {
-            FindClosestTower();
+            FindAnyTower();
             if (targetTower != null)
             {
                 currentTarget = targetTower;
                 currentState = EnemyState.MovingToTower;
             }
+            else if (player != null)
+            {
+                currentTarget = player;
+                currentState = EnemyState.MovingToTarget;
+            }
+            else
+            {
+                currentState = EnemyState.Idle;
+            }
         }
+    }
+
+    Transform FindAvailableTower()
+    {
+        if (mainTowers.Count == 0) return null;
+
+        Transform bestTower = null;
+        float closestDistance = Mathf.Infinity;
+        Vector3 myPosition = transform.position;
+        float detectionSqr = towerDetectionRange * towerDetectionRange;
+
+        foreach (Transform tower in mainTowers)
+        {
+            if (tower == null || !tower.gameObject.activeInHierarchy) continue;
+
+            if (IsTowerIgnored(tower)) continue;
+
+            TowerCapture towerCapture = tower.GetComponent<TowerCapture>();
+            if (towerCapture != null)
+            {
+                if (towerCapture.currentState == TowerCapture.TowerState.Enemy)
+                    continue;
+
+                if (towerCapture.isPlayerInRange)
+                {
+                    AddTowerToIgnoreList(tower);
+                    continue;
+                }
+            }
+
+            float sqrDistance = (tower.position - myPosition).sqrMagnitude;
+            if (sqrDistance <= detectionSqr && sqrDistance < closestDistance)
+            {
+                closestDistance = sqrDistance;
+                bestTower = tower;
+            }
+        }
+
+        return bestTower;
+    }
+
+    void FindAnyTower()
+    {
+        targetTower = null;
+
+        if (mainTowers.Count == 0)
+        {
+            if (player != null)
+                targetTower = player;
+            return;
+        }
+
+        float closestDistance = Mathf.Infinity;
+        Transform closestTower = null;
+        Vector3 myPosition = transform.position;
+
+        foreach (Transform tower in mainTowers)
+        {
+            if (tower == null || !tower.gameObject.activeInHierarchy) continue;
+
+            TowerCapture towerCapture = tower.GetComponent<TowerCapture>();
+            if (towerCapture != null && towerCapture.currentState == TowerCapture.TowerState.Enemy)
+                continue;
+
+            float sqrDistance = (tower.position - myPosition).sqrMagnitude;
+            float detectionSqr = towerDetectionRange * towerDetectionRange;
+
+            if (sqrDistance <= detectionSqr && sqrDistance < closestDistance)
+            {
+                closestDistance = sqrDistance;
+                closestTower = tower;
+            }
+        }
+
+        targetTower = closestTower;
+    }
+
+    void AddTowerToIgnoreList(Transform tower)
+    {
+        if (!ignoredTowers.Contains(tower))
+        {
+            ignoredTowers.Add(tower);
+            Debug.Log($"Added tower {tower.name} to ignore list (player nearby)");
+
+            StartCoroutine(RemoveTowerFromIgnoreListAfterTime(tower, ignoreTowerTime));
+        }
+    }
+
+    IEnumerator RemoveTowerFromIgnoreListAfterTime(Transform tower, float time)
+    {
+        yield return new WaitForSeconds(time);
+
+        if (ignoredTowers.Contains(tower))
+        {
+            ignoredTowers.Remove(tower);
+            Debug.Log($"Removed tower {tower.name} from ignore list");
+        }
+    }
+
+    IEnumerator CleanIgnoredTowersRoutine()
+    {
+        while (true)
+        {
+            yield return new WaitForSeconds(5f);
+
+            for (int i = ignoredTowers.Count - 1; i >= 0; i--)
+            {
+                if (ignoredTowers[i] == null)
+                {
+                    ignoredTowers.RemoveAt(i);
+                }
+            }
+        }
+    }
+
+    bool IsTowerIgnored(Transform tower)
+    {
+        return ignoredTowers.Contains(tower);
     }
 
     void UpdateState()
     {
-        if (currentTarget == null) return;
+        if (currentTarget == null)
+        {
+            currentState = EnemyState.Idle;
+            return;
+        }
 
         float distanceToTarget = Vector3.Distance(transform.position, currentTarget.position);
 
         bool isTower = mainTowers.Contains(currentTarget);
-        bool isTurret = currentTarget.CompareTag("Turret");
+        bool isTurret = turretLayer == (turretLayer | (1 << currentTarget.gameObject.layer));
         bool isPlayer = currentTarget == player;
 
-        if (isTower)
+        if (isTurret)
         {
             if (distanceToTarget <= attackRange)
             {
-                currentState = EnemyState.CapturingTower;
+                currentState = EnemyState.Attacking;
             }
             else
             {
                 currentState = EnemyState.MovingToTarget;
             }
         }
-        else if (isTurret || isPlayer)
+        else if (isTower)
+        {
+            TowerCapture towerCapture = currentTarget.GetComponent<TowerCapture>();
+            if (towerCapture != null)
+            {
+                if (towerCapture.isPlayerInRange)
+                {
+                    AddTowerToIgnoreList(currentTarget);
+                    currentTarget = null;
+                    currentState = EnemyState.Idle;
+                    return;
+                }
+
+                if (distanceToTarget <= attackRange)
+                {
+                    if (towerCapture.currentState == TowerCapture.TowerState.Enemy)
+                    {
+                        currentState = EnemyState.Attacking;
+                    }
+                    else
+                    {
+                        currentState = EnemyState.CapturingTower;
+                    }
+                }
+                else
+                {
+                    currentState = EnemyState.MovingToTarget;
+                }
+            }
+        }
+        else if (isPlayer)
         {
             if (distanceToTarget <= attackRange)
             {
@@ -233,6 +505,10 @@ public class EnemyAI : MonoBehaviour
             case EnemyState.CapturingTower:
                 CaptureTower();
                 break;
+
+            case EnemyState.Idle:
+                transform.Rotate(0, rotationSpeed * 0.5f * Time.deltaTime, 0);
+                break;
         }
     }
 
@@ -240,7 +516,11 @@ public class EnemyAI : MonoBehaviour
     {
         if (currentTarget == null)
         {
-            FindClosestTower();
+            UpdateTarget();
+            if (currentTarget == null)
+            {
+                currentState = EnemyState.Idle;
+            }
             return;
         }
 
@@ -259,25 +539,13 @@ public class EnemyAI : MonoBehaviour
         Debug.DrawLine(transform.position, currentTarget.position, Color.green);
     }
 
-    void AvoidOtherEnemies()
-    {
-        Collider[] nearbyEnemies = Physics.OverlapSphere(transform.position, 1f);
-        foreach (Collider enemy in nearbyEnemies)
-        {
-            if (enemy.gameObject != this.gameObject && enemy.CompareTag("Enemy"))
-            {
-                Vector3 avoidDirection = (transform.position - enemy.transform.position).normalized;
-                transform.position += avoidDirection * Time.deltaTime;
-            }
-        }
-    }
-
     void AttackTarget()
     {
         if (Time.time - lastAttackTime >= attackCooldown && currentTarget != null)
         {
             TurretHealth turretHealth = currentTarget.GetComponent<TurretHealth>();
             PlayerHealth playerHealth = currentTarget.GetComponent<PlayerHealth>();
+            TowerCapture towerCapture = currentTarget.GetComponent<TowerCapture>();
 
             if (turretHealth != null)
             {
@@ -289,6 +557,11 @@ public class EnemyAI : MonoBehaviour
                 playerHealth.TakeDamage(attackDamage);
                 Debug.Log($"Enemy attacked player for {attackDamage} damage!");
             }
+            else if (towerCapture != null)
+            {
+                towerCapture.TakeDamage(attackDamage);
+                Debug.Log($"Enemy attacked tower defense for {attackDamage} damage!");
+            }
 
             lastAttackTime = Time.time;
         }
@@ -296,57 +569,160 @@ public class EnemyAI : MonoBehaviour
 
     void CaptureTower()
     {
-        if (!isCapturingTower && currentTarget != null)
+        if (currentTarget == null) return;
+
+        TowerCapture towerCapture = currentTarget.GetComponent<TowerCapture>();
+        if (towerCapture == null) return;
+
+        if (towerCapture.isPlayerInRange)
+        {
+            AddTowerToIgnoreList(currentTarget);
+            currentTarget = null;
+            currentState = EnemyState.Idle;
+            return;
+        }
+
+        if (towerCapture.IsBeingCapturedByEnemy() && !isCapturingTower)
+        {
+            currentTarget = null;
+            currentState = EnemyState.MovingToTarget;
+            return;
+        }
+
+        if (!isCapturingTower)
         {
             isCapturingTower = true;
             captureProgress = 0f;
-            StartCoroutine(CaptureTowerRoutine());
+            towerCapture.SetEnemyCapturing(true);
+            StartCoroutine(CaptureTowerRoutine(currentTarget));
         }
     }
 
-    IEnumerator CaptureTowerRoutine()
+    IEnumerator CaptureTowerRoutine(Transform tower)
     {
         float captureTime = 5f;
+        TowerCapture towerCapture = tower.GetComponent<TowerCapture>();
 
-        while (captureProgress < 1f && currentTarget != null &&
-               Vector3.Distance(transform.position, currentTarget.position) <= attackRange)
+        if (towerCapture == null)
         {
+            isCapturingTower = false;
+            yield break;
+        }
+
+        while (captureProgress < 1f && tower != null &&
+               Vector3.Distance(transform.position, tower.position) <= attackRange)
+        {
+            if (towerCapture.isPlayerInRange)
+            {
+                isCapturingTower = false;
+                captureProgress = 0f;
+                towerCapture.SetEnemyCapturing(false);
+                AddTowerToIgnoreList(tower);
+                currentTarget = null;
+                currentState = EnemyState.Idle;
+                yield break;
+            }
+
             captureProgress += Time.deltaTime / captureTime;
             yield return null;
         }
 
-        if (captureProgress >= 1f && currentTarget != null)
+        if (captureProgress >= 1f && tower != null)
         {
-            CompleteTowerCapture();
+            CompleteTowerCapture(tower);
         }
         else
         {
             isCapturingTower = false;
             captureProgress = 0f;
+            if (towerCapture != null)
+            {
+                towerCapture.SetEnemyCapturing(false);
+            }
         }
     }
 
-    void CompleteTowerCapture()
+    void CompleteTowerCapture(Transform tower)
     {
         Debug.Log("Tower captured by enemy!");
 
-        TowerCapture towerCapture = currentTarget.GetComponent<TowerCapture>();
+        TowerCapture towerCapture = tower.GetComponent<TowerCapture>();
         if (towerCapture != null)
         {
             towerCapture.OnCapturedByEnemy();
-            towerCapture.IsCapturedByEnemy = true;
-            mainTowers.Remove(currentTarget);
         }
 
         isCapturingTower = false;
         captureProgress = 0f;
         currentTarget = null;
-        FindClosestTower();
+        currentState = EnemyState.MovingToTarget;
+
+        CleanTowerList();
+        UpdateTarget();
+    }
+
+    public void AddTargetingTurret(TowerController turret)
+    {
+        if (!targetingTurrets.Contains(turret))
+        {
+            targetingTurrets.Add(turret);
+        }
+    }
+
+    public void RemoveTargetingTurret(TowerController turret)
+    {
+        if (targetingTurrets.Contains(turret))
+        {
+            targetingTurrets.Remove(turret);
+        }
+    }
+
+    void CleanTurretList()
+    {
+        for (int i = turretsInRange.Count - 1; i >= 0; i--)
+        {
+            if (turretsInRange[i] == null || !turretsInRange[i].gameObject.activeInHierarchy)
+            {
+                turretsInRange.RemoveAt(i);
+            }
+        }
+
+        for (int i = targetingTurrets.Count - 1; i >= 0; i--)
+        {
+            if (targetingTurrets[i] == null || !targetingTurrets[i].gameObject.activeInHierarchy)
+            {
+                targetingTurrets.RemoveAt(i);
+            }
+        }
+    }
+
+    void CleanTowerList()
+    {
+        for (int i = mainTowers.Count - 1; i >= 0; i--)
+        {
+            if (mainTowers[i] == null)
+            {
+                mainTowers.RemoveAt(i);
+            }
+        }
+    }
+
+    public void StopCapturing()
+    {
+        if (isCapturingTower)
+        {
+            isCapturingTower = false;
+            captureProgress = 0f;
+            StopAllCoroutines();
+            currentState = EnemyState.MovingToTarget;
+        }
     }
 
     void OnTriggerEnter(Collider other)
     {
-        if (other.CompareTag("Turret"))
+        int layer = other.gameObject.layer;
+
+        if (turretLayer == (turretLayer | (1 << layer)))
         {
             if (!turretsInRange.Contains(other.transform))
             {
@@ -354,19 +730,38 @@ public class EnemyAI : MonoBehaviour
             }
         }
 
-        if (other.CompareTag("MainTower") && !mainTowers.Contains(other.transform))
+        if (towerLayer == (towerLayer | (1 << layer)) && !mainTowers.Contains(other.transform))
         {
             mainTowers.Add(other.transform);
-            FindClosestTower();
+        }
+
+        TowerController turret = other.GetComponent<TowerController>();
+        if (turret != null)
+        {
+            AddTargetingTurret(turret);
         }
     }
 
     void OnTriggerExit(Collider other)
     {
-        if (other.CompareTag("Turret"))
+        int layer = other.gameObject.layer;
+
+        if (turretLayer == (turretLayer | (1 << layer)))
         {
             turretsInRange.Remove(other.transform);
         }
+
+        TowerController turret = other.GetComponent<TowerController>();
+        if (turret != null)
+        {
+            RemoveTargetingTurret(turret);
+        }
+    }
+
+    void OnDestroy()
+    {
+        if (targetUpdateCoroutine != null)
+            StopCoroutine(targetUpdateCoroutine);
     }
 
     void OnDrawGizmosSelected()

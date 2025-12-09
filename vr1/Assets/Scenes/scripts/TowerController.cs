@@ -40,6 +40,12 @@ public class TowerController : MonoBehaviour
                 Shoot();
                 nextFireTime = Time.time + 1f / fireRate;
             }
+
+            EnemyAI enemyAI = currentTarget.GetComponent<EnemyAI>();
+            if (enemyAI != null)
+            {
+                enemyAI.AddTargetingTurret(this);
+            }
         }
     }
 
@@ -49,6 +55,11 @@ public class TowerController : MonoBehaviour
             (Vector3.Distance(transform.position, currentTarget.position) > attackRange ||
              !currentTarget.gameObject.activeInHierarchy))
         {
+            EnemyAI enemyAI = currentTarget.GetComponent<EnemyAI>();
+            if (enemyAI != null)
+            {
+                enemyAI.RemoveTargetingTurret(this);
+            }
             currentTarget = null;
         }
 
@@ -135,7 +146,27 @@ public class TowerController : MonoBehaviour
 
             if (currentTarget == other.transform)
             {
+                EnemyAI enemyAI = other.GetComponent<EnemyAI>();
+                if (enemyAI != null)
+                {
+                    enemyAI.RemoveTargetingTurret(this);
+                }
                 currentTarget = null;
+            }
+        }
+    }
+
+    void OnDestroy()
+    {
+        foreach (Transform enemy in enemiesInRange)
+        {
+            if (enemy != null)
+            {
+                EnemyAI enemyAI = enemy.GetComponent<EnemyAI>();
+                if (enemyAI != null)
+                {
+                    enemyAI.RemoveTargetingTurret(this);
+                }
             }
         }
     }

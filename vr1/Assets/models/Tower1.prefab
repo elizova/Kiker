@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &7803164230699656582
+--- !u!1 &4133864664341784723
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,51 +8,49 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 3575640336260995902}
-  - component: {fileID: 5211881982192816277}
-  - component: {fileID: 5171372789254792970}
-  - component: {fileID: 8215088130503652812}
-  - component: {fileID: 9030671207475549258}
-  - component: {fileID: 2326535977706314037}
-  - component: {fileID: 5363814270235548264}
-  - component: {fileID: 1588435521849893429}
-  m_Layer: 3
-  m_Name: Enemy
-  m_TagString: Untagged
+  - component: {fileID: 1637587599368213975}
+  - component: {fileID: 502699089599801172}
+  - component: {fileID: 4714025723504763772}
+  - component: {fileID: 3328148129439473409}
+  - component: {fileID: 4198434868083857331}
+  - component: {fileID: 9049500154312357397}
+  m_Layer: 7
+  m_Name: Tower1
+  m_TagString: MainTower
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &3575640336260995902
+--- !u!4 &1637587599368213975
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7803164230699656582}
+  m_GameObject: {fileID: 4133864664341784723}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 1.14, y: 1.05, z: -2.25439}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!33 &5211881982192816277
+--- !u!33 &502699089599801172
 MeshFilter:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7803164230699656582}
-  m_Mesh: {fileID: 10208, guid: 0000000000000000e000000000000000, type: 0}
---- !u!23 &5171372789254792970
+  m_GameObject: {fileID: 4133864664341784723}
+  m_Mesh: {fileID: 10206, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!23 &4714025723504763772
 MeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7803164230699656582}
+  m_GameObject: {fileID: 4133864664341784723}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
@@ -94,13 +92,13 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!136 &8215088130503652812
+--- !u!136 &3328148129439473409
 CapsuleCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7803164230699656582}
+  m_GameObject: {fileID: 4133864664341784723}
   m_Material: {fileID: 0}
   m_IncludeLayers:
     serializedVersion: 2
@@ -113,44 +111,43 @@ CapsuleCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 2
-  m_Radius: 0.5
+  m_Radius: 0.5000001
   m_Height: 2
   m_Direction: 1
-  m_Center: {x: 0, y: 0, z: 0}
---- !u!114 &9030671207475549258
+  m_Center: {x: 0.000000059604645, y: 0, z: -0.00000008940697}
+--- !u!114 &4198434868083857331
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7803164230699656582}
+  m_GameObject: {fileID: 4133864664341784723}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7c1e47e110ecf7a43853c1590b526995, type: 3}
+  m_Script: {fileID: 11500000, guid: 76767916f16cd73408f2f031cc6aeadf, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::EnemyHealth
-  health: 30
---- !u!114 &2326535977706314037
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7803164230699656582}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d370d10cbd9df3e4ab64abbdc8fb23f6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::EnemyMovement
-  target: {fileID: 0}
-  speed: 2
---- !u!54 &5363814270235548264
+  m_EditorClassIdentifier: Assembly-CSharp::TowerCapture
+  currentState: 0
+  captureProgress: 0
+  defenseHealth: 5
+  captureRadius: 5
+  captureSpeed: 0.5
+  enemyCaptureSpeed: 0.3
+  towerRenderer: {fileID: 0}
+  neutralColor: {r: 0.4792453, g: 0.4792453, b: 0.4792453, a: 1}
+  playerColor: {r: 0, g: 0, b: 1, a: 1}
+  enemyColor: {r: 1, g: 0, b: 0, a: 1}
+  defenseShield: {fileID: 0}
+  captureSlider: {fileID: 0}
+  captureUI: {fileID: 0}
+  isPlayerInRange: 0
+--- !u!54 &9049500154312357397
 Rigidbody:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7803164230699656582}
+  m_GameObject: {fileID: 4133864664341784723}
   serializedVersion: 5
   m_Mass: 1
   m_LinearDamping: 0
@@ -167,38 +164,7 @@ Rigidbody:
   m_ImplicitCom: 1
   m_ImplicitTensor: 1
   m_UseGravity: 1
-  m_IsKinematic: 0
+  m_IsKinematic: 1
   m_Interpolate: 0
-  m_Constraints: 84
+  m_Constraints: 0
   m_CollisionDetection: 0
---- !u!114 &1588435521849893429
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7803164230699656582}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 24db719f38ac59242b32a3586e58af48, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: '::'
-  player: {fileID: 0}
-  mainTowers: []
-  turretDetectionRange: 10
-  towerDetectionRange: 70
-  playerDetectionRange: 5
-  attackRange: 3
-  attackDamage: 10
-  attackCooldown: 2
-  moveSpeed: 3
-  rotationSpeed: 5
-  turretLayer:
-    serializedVersion: 2
-    m_Bits: 64
-  towerLayer:
-    serializedVersion: 2
-    m_Bits: 128
-  playerLayer:
-    serializedVersion: 2
-    m_Bits: 512
