@@ -21,13 +21,13 @@ public class PlayerBullet : MonoBehaviour
     {
         if (other.gameObject == shooter || other.CompareTag("Bullet")) return;
 
-        // TowerCapture tower = other.GetComponent<TowerCapture>();
-        // if (tower != null && tower.currentState == TowerCapture.TowerState.Enemy)
-        // {
-        //     tower.TakeDamage(damage);
-        //     Destroy(gameObject);
-        //     return;
-        // }
+        TowerCapture tower = other.GetComponent<TowerCapture>();
+        if (tower != null && tower.currentState == TowerCapture.TowerState.Enemy)
+        {
+            tower.TakeDamage(damage);
+            Destroy(gameObject);
+            return;
+        }
 
         EnemyHealth enemy = other.GetComponent<EnemyHealth>();
         if (enemy != null)

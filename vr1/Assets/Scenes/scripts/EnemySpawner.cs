@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 
 public class EnemySpawner : MonoBehaviour
 {
@@ -18,10 +19,20 @@ public class EnemySpawner : MonoBehaviour
 
     private int currentEnemiesCount = 0;
     private bool isSpawning = false;
+    private List<GameObject> activeEnemies = new List<GameObject>();
 
     void Start()
     {
-        StartSpawning();
+        //StartSpawning()
+    }
+
+    public void ActivateThisSpawner()
+    {
+        if (!isSpawning)
+        {
+            StartSpawning();
+            Debug.Log($"Spawner '{gameObject.name}' activated!");
+        }
     }
 
     void StartSpawning()
@@ -65,13 +76,32 @@ public class EnemySpawner : MonoBehaviour
         }
 
         currentEnemiesCount++;
+        activeEnemies.Add(enemy);
 
+        StartCoroutine(TrackEnemyHealth(enemy));
+
+        Debug.Log($"Spawner '{gameObject.name}': Spawned enemy. Total: {currentEnemiesCount}");
+    }
+
+    IEnumerator TrackEnemyHealth(GameObject enemy)
+    {
         EnemyHealth enemyHealth = enemy.GetComponent<EnemyHealth>();
-        if (enemyHealth != null)
+
+        if (enemyHealth == null)
         {
+            Debug.LogWarning("Enemy has no EnemyHealth component!");
+            yield break;
         }
 
-        Debug.Log($"Spawned enemy. Total: {currentEnemiesCount}");
+        while (enemy != null && enemy.activeSelf && enemyHealth.health > 0)
+        {
+            yield return new WaitForSeconds(0.5f);
+        }
+
+        if (enemy != null && (!enemy.activeSelf || enemyHealth.health <= 0))
+        {
+            OnEnemyDied(enemy);
+        }
     }
 
     void SetupEnemyComponents(GameObject enemy)
@@ -93,11 +123,46 @@ public class EnemySpawner : MonoBehaviour
         enemy.SetActive(true);
     }
 
-    public void OnEnemyDied()
+    void OnEnemyDied(GameObject enemy)
     {
-        currentEnemiesCount--;
-        currentEnemiesCount = Mathf.Max(0, currentEnemiesCount);
-        Debug.Log($"Enemy died. Total: {currentEnemiesCount}");
+        if (activeEnemies.Contains(enemy))
+        {
+            currentEnemiesCount--;
+            currentEnemiesCount = Mathf.Max(0, currentEnemiesCount);
+            activeEnemies.Remove(enemy);
+
+            if (enemy != null)
+            {
+                Destroy(enemy);
+            }
+
+            Debug.Log($"Spawner '{gameObject.name}': Enemy died. Total: {currentEnemiesCount}");
+        }
+    }
+
+    public void ClearAllEnemies()
+    {
+        foreach (GameObject enemy in activeEnemies)
+        {
+            if (enemy != null)
+            {
+                Destroy(enemy);
+            }
+        }
+
+        activeEnemies.Clear();
+        currentEnemiesCount = 0;
+        Debug.Log($"Spawner '{gameObject.name}': All enemies cleared.");
+    }
+
+    public bool IsSpawning()
+    {
+        return isSpawning;
+    }
+
+    public int GetEnemyCount()
+    {
+        return currentEnemiesCount;
     }
 
     void OnDrawGizmos()

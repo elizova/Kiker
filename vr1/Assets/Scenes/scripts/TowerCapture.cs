@@ -28,6 +28,7 @@ public class TowerCapture : MonoBehaviour
     private GameManager gameManager;
     public bool isPlayerInRange = false;
     private float currentDefenseHealth;
+    private bool defenseDestroyed = false; // Новый флаг
 
     private List<EnemyAI> capturingEnemies = new List<EnemyAI>();
     private bool isBeingCapturedByEnemy = false;
@@ -43,6 +44,7 @@ public class TowerCapture : MonoBehaviour
     {
         gameManager = FindAnyObjectByType<GameManager>();
         currentDefenseHealth = defenseHealth;
+        defenseDestroyed = false;
 
         TowerManager towerManager = TowerManager.Instance;
         if (towerManager != null)
@@ -83,16 +85,25 @@ public class TowerCapture : MonoBehaviour
 
         if (defenseShield != null)
         {
-            defenseShield.SetActive(currentState == TowerState.Enemy);
+            defenseShield.SetActive(currentState == TowerState.Enemy && !defenseDestroyed);
         }
     }
 
     void Update()
     {
-        if (isPlayerInRange && currentState != TowerState.Enemy)
+        // ИЗМЕНЕНО: Теперь игрок может захватывать вражескую башню после уничтожения защиты
+        if (isPlayerInRange)
         {
-            CaptureByPlayer();
-            Debug.Log("Player in zone");
+            if (currentState == TowerState.Neutral)
+            {
+                CaptureByPlayer();
+                Debug.Log("Player capturing neutral tower");
+            }
+            else if (currentState == TowerState.Enemy && defenseDestroyed)
+            {
+                CaptureByPlayer();
+                Debug.Log("Player capturing enemy tower (defense destroyed)");
+            }
         }
 
         if (!isPlayerInRange && captureProgress > 0)
@@ -105,9 +116,6 @@ public class TowerCapture : MonoBehaviour
 
     void CaptureByPlayer()
     {
-        if (currentState == TowerState.Enemy)
-            return;
-
         if (currentState == TowerState.Neutral)
         {
             captureProgress += captureSpeed * Time.deltaTime;
@@ -117,7 +125,7 @@ public class TowerCapture : MonoBehaviour
                 CaptureByPlayerComplete();
             }
         }
-        else if (currentState == TowerState.Enemy && currentDefenseHealth <= 0)
+        else if (currentState == TowerState.Enemy && defenseDestroyed)
         {
             captureProgress += captureSpeed * Time.deltaTime;
 
@@ -130,19 +138,29 @@ public class TowerCapture : MonoBehaviour
 
     public void TakeDamage(float damage)
     {
-        if (currentState == TowerState.Enemy)
+        if (currentState == TowerState.Enemy && !defenseDestroyed)
         {
             currentDefenseHealth -= damage;
-            Debug.Log($"Tower defense hit! Health: {currentDefenseHealth}");
+            Debug.Log($"Tower defense hit! Health: {currentDefenseHealth}/{defenseHealth}");
 
             if (currentDefenseHealth <= 0)
             {
                 currentDefenseHealth = 0;
+                defenseDestroyed = true;
+
                 if (defenseShield != null)
                 {
                     defenseShield.SetActive(false);
                 }
-                Debug.Log("Tower defense destroyed!");
+
+                Debug.Log("Tower defense destroyed! Player can now capture.");
+
+                // Сразу начинаем захват если игрок в зоне
+                if (isPlayerInRange)
+                {
+                    Debug.Log("Player is in range, starting capture...");
+                    captureProgress = 0f; // Сбрасываем прогресс захвата
+                }
             }
         }
     }
@@ -151,6 +169,7 @@ public class TowerCapture : MonoBehaviour
     {
         currentState = TowerState.Player;
         captureProgress = 0f;
+        defenseDestroyed = false; // Сбрасываем флаг
 
         Debug.Log($"Tower captured by player!");
         SetupVisuals();
@@ -190,6 +209,7 @@ public class TowerCapture : MonoBehaviour
     {
         currentState = TowerState.Enemy;
         currentDefenseHealth = defenseHealth;
+        defenseDestroyed = false; // Сбрасываем флаг
         captureProgress = 0f;
 
         Debug.Log($"Tower captured by enemy!");
@@ -209,6 +229,7 @@ public class TowerCapture : MonoBehaviour
         currentState = TowerState.Player;
         captureProgress = 0f;
         currentDefenseHealth = 0f;
+        defenseDestroyed = false; // Сбрасываем флаг
 
         Debug.Log($"Tower recaptured from enemy!");
         SetupVisuals();
@@ -223,9 +244,10 @@ public class TowerCapture : MonoBehaviour
     {
         if (captureUI != null)
         {
+            // ИЗМЕНЕНО: Показываем UI для вражеских башен только когда защита уничтожена
             bool showUI = isPlayerInRange &&
                          (currentState == TowerState.Neutral ||
-                          (currentState == TowerState.Enemy && currentDefenseHealth <= 0));
+                          (currentState == TowerState.Enemy && defenseDestroyed));
 
             captureUI.SetActive(showUI);
 
@@ -241,10 +263,15 @@ public class TowerCapture : MonoBehaviour
         if (other.CompareTag("Player"))
         {
             isPlayerInRange = true;
-
             InterruptEnemyCapture();
-        }
 
+            // Если защита уже уничтожена, начинаем захват сразу
+            if (currentState == TowerState.Enemy && defenseDestroyed)
+            {
+                captureProgress = 0f; // Начинаем с нуля
+                Debug.Log("Player entered zone, starting capture of enemy tower");
+            }
+        }
     }
 
     void OnTriggerExit(Collider other)
