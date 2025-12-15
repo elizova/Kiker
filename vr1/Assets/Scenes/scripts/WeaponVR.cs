@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.XR.Interaction.Toolkit;
 
 public class WeaponVR : MonoBehaviour
@@ -16,11 +17,15 @@ public class WeaponVR : MonoBehaviour
     [Header("XR Controller")]
     public ActionBasedController xrController;
 
+    public InputActionReference triggerAction;
+
     private float nextFireTime;
     private Vector3 originalPosition;
 
     void Start()
     {
+        triggerAction.action.Enable();
+        triggerAction.action.performed += onTriggerClick;
         originalPosition = transform.localPosition;
 
         if (bulletSpawnPoint == null)
@@ -29,11 +34,6 @@ public class WeaponVR : MonoBehaviour
             spawnPoint.transform.SetParent(transform);
             spawnPoint.transform.localPosition = new Vector3(0, 0, 0.3f);
             bulletSpawnPoint = spawnPoint.transform;
-        }
-
-        if (xrController == null)
-        {
-            xrController = GetComponentInParent<ActionBasedController>();
         }
     }
 
@@ -49,11 +49,16 @@ public class WeaponVR : MonoBehaviour
         }
     }
 
+    void onTriggerClick(InputAction.CallbackContext context)
+    {
+
+    }
+
     bool IsTriggerPressed()
     {
-        if (xrController == null) return false;
+        if (triggerAction == null) return false;
 
-        float triggerValue = xrController.activateActionValue.action?.ReadValue<float>() ?? 0f;
+        float triggerValue = triggerAction.action.ReadValue<float>();
         return triggerValue > 0.5f;
     }
 
@@ -78,11 +83,17 @@ public class WeaponVR : MonoBehaviour
 
         transform.localPosition = originalPosition - transform.forward * recoilDistance;
 
-        if (xrController != null)
-        {
-            xrController.SendHapticImpulse(0.3f, 0.1f);
-        }
+        SendHapticImpulse();
 
         nextFireTime = Time.time + fireRate;
+    }
+
+    void SendHapticImpulse()
+    {
+        XRBaseController controller = GetComponentInParent<XRBaseController>();
+        if (controller != null)
+        {
+            controller.SendHapticImpulse(0.3f, 0.1f);
+        }
     }
 }

@@ -5,19 +5,25 @@ TagManager:
   serializedVersion: 3
   tags:
   - Anchor
+  - MainTower
+  - Turret
+  - Enemy
+  - Bullet
+  - UI
+  - Wall
   layers:
   - Default
   - TransparentFX
   - Ignore Raycast
-  - 
+  - Enemy
   - Water
   - UI
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
+  - Turret
+  - Tower
+  - Bullet
+  - Player
+  - Wall
+  - Floor
   - 
   - 
   - 
@@ -41,6 +47,9 @@ TagManager:
   m_SortingLayers:
   - name: Default
     uniqueID: 0
+    locked: 0
+  - name: UI
+    uniqueID: 3026360783
     locked: 0
   m_RenderingLayers:
   - Default

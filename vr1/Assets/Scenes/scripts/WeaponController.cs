@@ -142,17 +142,25 @@ public class WeaponController : MonoBehaviour
                                           bulletSpawnPoint.position,
                                           bulletSpawnPoint.rotation);
 
-            Rigidbody bulletRb = bullet.GetComponent<Rigidbody>();
-            if (bulletRb != null)
+            PlayerBullet bulletController = bullet.GetComponent<PlayerBullet>();
+            if (bulletController != null)
             {
-                bulletRb.linearVelocity = bulletSpawnPoint.forward * bulletForce;
+                bulletController.shooter = this.gameObject;
+                bulletController.damage = 10f;
+            }
+            else
+            {
+                Rigidbody bulletRb = bullet.GetComponent<Rigidbody>();
+                if (bulletRb != null)
+                {
+                    bulletRb.linearVelocity = bulletSpawnPoint.forward * bulletForce;
+                }
             }
 
             Destroy(bullet, 3f);
         }
 
         transform.localPosition = originalPosition - transform.forward * recoilDistance;
-
         nextFireTime = Time.time + fireRate;
     }
 
