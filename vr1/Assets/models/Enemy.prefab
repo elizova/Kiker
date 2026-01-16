@@ -186,13 +186,16 @@ MonoBehaviour:
   player: {fileID: 0}
   mainTowers: []
   turretDetectionRange: 10
-  towerDetectionRange: 70
+  towerDetectionRange: 13
   playerDetectionRange: 5
+  explorationRange: 30
   attackRange: 3
   attackDamage: 10
   attackCooldown: 2
-  moveSpeed: 3
+  moveSpeed: 2.5
   rotationSpeed: 5
+  obstacleCheckDistance: 2
+  wallAvoidanceForce: 2
   turretLayer:
     serializedVersion: 2
     m_Bits: 64
@@ -202,3 +205,6 @@ MonoBehaviour:
   playerLayer:
     serializedVersion: 2
     m_Bits: 512
+  wallLayer:
+    serializedVersion: 2
+    m_Bits: 4096

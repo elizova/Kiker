@@ -18,7 +18,7 @@ public class TurretHealth : MonoBehaviour
     void DestroyTurret()
     {
         Debug.Log("Turret destroyed!");
-        gameObject.SetActive(false);
-        // Destroy(gameObject);
+        //gameObject.SetActive(false);
+        Destroy(gameObject);
     }
 }
